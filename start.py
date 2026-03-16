@@ -15,25 +15,20 @@
 import os
 import sys
 import logging
+import asyncio
 from threading import Thread
 from flask import Flask
 from telethon import TelegramClient, events
-from motor.motor_asyncio import AsyncIOMotorClient
 
 # --- 1. SYSTEM & LOGGING SETUP ---
 sys.path.append(os.getcwd())
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # --- 2. RENDER KEEP-ALIVE (FLASK) ---
 app = Flask('')
-
 @app.route('/')
-def home():
-    return "PrivComBot is Running!"
+def home(): return "PrivComBot is Running!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
@@ -50,28 +45,26 @@ API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 MONGO_URI = os.getenv("MONGO_URI")
-PYTHON_VERSION = os.getenv("PYTHON_VERSION", "3.10")
 
-# --- 4. SAFETY CHECK ---
-if not all([API_ID, API_HASH, BOT_TOKEN, MONGO_URI]):
-    logger.error("❌ MISSING CRITICAL VARS: Check API_ID, API_HASH, BOT_TOKEN, and MONGO_URI in Render!")
-    sys.exit(1)
-
-# --- 5. INITIALIZE CLIENTS (TELEGRAM & MONGO) ---
+# --- 4. INITIALIZE CLIENT ---
 bot = TelegramClient('bot', int(API_ID), API_HASH).start(bot_token=BOT_TOKEN)
 
 # Import logic from helper/stuff.py
-try:
-    from helper.stuff import start, ihelp, broadcast, add_user
-except ImportError:
-    logger.error("❌ Could not find helper/stuff.py! Ensure the folder exists.")
+from helper.stuff import start, ihelp, broadcast, add_user
 
-# --- 6. COMMAND HANDLERS ---
+# --- 5. COMMAND HANDLERS ---
 
 @bot.on(events.NewMessage(pattern='/start'))
 async def start_handler(event):
-    # Saves user to MongoDB via the helper function
-    await add_user(event.sender_id)
+    # This block prevents the bot from staying silent if MongoDB fails
+    try:
+        # Try to save user with a 5-second timeout
+        await asyncio.wait_for(add_user(event.sender_id), timeout=5.0)
+    except Exception as e:
+        logger.error(f"MongoDB Error: {e}")
+        print("⚠️ Database connection failed, but continuing to reply...")
+
+    # The bot will now always reply even if the database is down
     await start(event)
 
 @bot.on(events.NewMessage(pattern='/help'))
@@ -80,12 +73,11 @@ async def help_handler(event):
 
 @bot.on(events.NewMessage(pattern='/broadcast'))
 async def broadcast_handler(event):
-    # Only the owner can broadcast
     await broadcast(event, bot, OWNER_ID)
 
-# --- 7. STARTUP ---
+# --- 6. STARTUP ---
 if __name__ == "__main__":
-    print(f"✅ Starting PrivComBot on Python {PYTHON_VERSION}")
-    keep_alive()  # Satisfies Render's port requirement
-    print("🚀 Bot is online. Send /start in Telegram!")
+    print("✅ PrivComBot is booting...")
+    keep_alive()
+    print("🚀 Bot is online. Testing response now!")
     bot.run_until_disconnected()
