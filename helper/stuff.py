@@ -11,7 +11,6 @@
 #    General Public License for more details.
 #
 #    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
-
 from telethon import Button,
 events
 import sys
