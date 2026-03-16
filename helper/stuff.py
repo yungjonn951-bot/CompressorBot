@@ -18,7 +18,6 @@ import os
 sys.path.append(os.getcwd())
 
 # This ensures the bot finds the 'helper' folder correctly
-sys.path.append(os.getcwd())
 
 # This handles both ways the bot might try to load the file
 try:
