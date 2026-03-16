@@ -13,7 +13,7 @@
 #    License can be found in <https://github.com/1Danish-00/CompressorBot/blob/main/License> .
 
 
-from helper.stuff import *
+from helper.stuff impor start,ihelp *
 
 LOGS.info("Starting...")
 
