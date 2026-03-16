@@ -11,30 +11,30 @@
 #    General Public License for more details.
 #
 #    License can be found in <https://github.com/1Danish-00/CompressorBot/blob/main/License>
-
-# 1. Imports first
-from telethon import TelegramClient, events
 import os
+import sys
+import logging
+from telethon import TelegramClient,
+events
 
-# 2. Define the bot/client next
-API_ID = int(os.environ.get("API_ID"))
-API_HASH = os.environ.get("API_HASH")
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+# 1. Path Setup
+sys.path.append(os.getcwd())
 
-# THIS LINE MUST BE ABOVE THE @bot.on LINES
+# 2. Logging (So you can see errors in Render logs)
+logging.basicConfig(level=logging.INFO)
+
+# 3. Import functions from helper
+from helper.stuff import start, ihelp
+
+# 4. Credentials (Ensure these are set in Render Environment Variables)
+API_ID = int(os.environ.get("API_ID", 0))
+API_HASH = os.environ.get("API_HASH", "")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+
+# 5. DEFINE THE BOT FIRST (Fixes the NameError)
 bot = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
-# 3. Then add the handlers
-@bot.on(events.NewMessage(pattern='/start'))
-async def start_handler(event):
-    # your code here
-
-# Logging to help you see errors in Render logs
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-
-# --- 4. START THE BOT ---
-bot = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
-
+# 6. NOW ADD THE HANDLERS
 @bot.on(events.NewMessage(pattern='/start'))
 async def start_handler(event):
     await start(event)
@@ -43,5 +43,11 @@ async def start_handler(event):
 async def help_handler(event):
     await ihelp(event)
 
-print("Bot is alive! Go to Telegram and press /start")
+# Optional: Add CallbackQuery handler if you have buttons
+@bot.on(events.CallbackQuery)
+async def callback_handler(event):
+    if event.data == b'help':
+        await ihelp(event)
+
+print("SUCCESS: Bot is running...")
 bot.run_until_disconnected()
