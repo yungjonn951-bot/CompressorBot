@@ -15,40 +15,44 @@
 import os
 import sys
 import logging
-from telethon import TelegramClient, events
-from flask import Flask
 from threading import Thread
+from flask import Flask
+from telethon import TelegramClient, events
 
 # --- 1. SYSTEM SETUP ---
 sys.path.append(os.getcwd())
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- 2. THE KEEP-ALIVE WEB SERVER (Fixes Render Port Error) ---
+# --- 2. KEEP-ALIVE SERVER (The Flask Part) ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is alive!"
+    return "Bot is alive and running!"
 
-def run():
-    # Render uses the 'PORT' environment variable automatically
+def run_flask():
+    # Render automatically provides a PORT variable
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
-    t = Thread(target=run)
+    t = Thread(target=run_flask)
+    t.daemon = True # This ensures the thread dies when the main script dies
     t.start()
 
-# --- 3. CORE VARIABLES ---
+# --- 3. ENVIRONMENT VARIABLES ---
 API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+OWNER_ID = int(os.getenv("OWNER_ID", 0))
+LOG_CHANNEL = int(os.getenv("LOG_CHANNEL", 0))
+TG_DC = int(os.getenv("TG_DC", 1))
 PYTHON_VERSION = os.getenv("PYTHON_VERSION", "3.10")
 
 # --- 4. START THE BOT ---
 if not all([API_ID, API_HASH, BOT_TOKEN]):
-    logger.error("Missing API_ID, API_HASH, or BOT_TOKEN!")
+    logger.error("CRITICAL: Missing API_ID, API_HASH, or BOT_TOKEN!")
     sys.exit(1)
 
 bot = TelegramClient('bot', int(API_ID), API_HASH).start(bot_token=BOT_TOKEN)
@@ -64,9 +68,7 @@ async def help_handler(event):
     await ihelp(event)
 
 if __name__ == "__main__":
-    print(f"✅ Bot is starting on Python {PYTHON_VERSION}")
-    keep_alive() # Starts the fake website to satisfy Render
-    print("🚀 Keep-alive server is running. Bot is ready!")
+    print(f"✅ Starting Python {PYTHON_VERSION}")
+    keep_alive()  # This starts the "heartbeat" server
+    print("🚀 Bot is connected to Telegram!")
     bot.run_until_disconnected()
-
-
