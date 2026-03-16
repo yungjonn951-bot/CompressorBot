@@ -5,5 +5,3 @@ pillow
 python-magic
 cryptg
 https://github.com/1Danish-00/Telethon/archive/master.zip
-
-
