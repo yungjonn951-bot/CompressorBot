@@ -12,6 +12,16 @@
 #
 #    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
 
+ import os
+import sys
+from telethon import Button, events
+
+# This handles both ways the bot might try to load the file
+try:
+    from utils import GetFullUserRequest
+except ImportError:
+    from helper.utils import GetFullUserRequest
+
 # --- START COMMAND ---
 async def start(event):
     try:
@@ -19,22 +29,6 @@ async def start(event):
         first_name = ok.users[0].first_name
     except:
         first_name = "User"
-
-    await event.reply(
-        f"Hi `{first_name}`! **I am PrivComBot** 🗜️\n\n"
-        "I can compress your videos to save data while maintaining quality.\n\n"
-        "**How to use:** Just send me a video file!",
-        buttons=[
-            [
-                Button.inline("⚙️ Settings", data="settings"),
-                Button.inline("📖 Help", data="help")
-            ],
-            [
-                Button.url("👨‍💻 Developer", "https://t.me/YUNG_JONN_007"),
-                Button.url("🛡️ Privacy Policy", "https://telegra.ph/PrivComBot-Privacy-Policy")
-            ]
-        ]
-    )
 
 # --- HELP COMMAND ---
 async def ihelp(event):
