@@ -10,122 +10,43 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 #    General Public License for more details.
 #
-#    License can be found in <https://github.com/1Danish-00/CompressorBot/blob/main/License> .
-
+#    License can be found in <https://github.com/1Danish-00/CompressorBot/blob/main/License>
 
 import os
 import sys
+import logging
+from telethon import TelegramClient, events
+
+# --- 1. THE PATH FIXER ---
+# This ensures the bot can see the 'helper' folder
 sys.path.append(os.getcwd())
 
-
-LOGS.info("Starting...")
-
-
-######## Connect ########
-
-
+# --- 2. THE IMPORTS ---
 try:
-    cbot = TelegramClient("bot", APP_ID, API_HASH).start(bot_token=BOT_TOKEN)
-except Exception as e:
-    LOGS.info("Environment vars are missing! Kindly recheck.")
-    LOGS.info("Bot is quiting...")
-    LOGS.info(str(e))
-    exit()
+    from helper.stuff import start, ihelp
+except ImportError:
+    # Fallback if the folder structure is flat
+    from stuff import start, ihelp
 
+# --- 3. CONFIGURATION ---
+# It is better to use Environment Variables on Render
+API_ID = int(os.environ.get("API_ID", 0))
+API_HASH = os.environ.get("API_HASH", "")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
-####### GENERAL CMDS ########
+# Logging to help you see errors in Render logs
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
+# --- 4. START THE BOT ---
+bot = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
-@cbot.on(events.NewMessage(pattern="/start"))
-async def _(e):
-    await start(e)
+@bot.on(events.NewMessage(pattern='/start'))
+async def start_handler(event):
+    await start(event)
 
+@bot.on(events.NewMessage(pattern='/help'))
+async def help_handler(event):
+    await ihelp(event)
 
-@cbot.on(events.NewMessage(pattern="/ping"))
-async def _(e):
-    await up(e)
-
-
-@cbot.on(events.NewMessage(pattern="/help"))
-async def _(e):
-    await help(e)
-
-
-######## Callbacks #########
-
-
-@cbot.on(events.callbackquery.CallbackQuery(data=re.compile(b"sshot(.*)")))
-async def _(e):
-    await screenshot(e)
-
-
-@cbot.on(events.callbackquery.CallbackQuery(data=re.compile(b"gsmpl(.*)")))
-async def _(e):
-    await sample(e)
-
-
-@cbot.on(events.callbackquery.CallbackQuery(data=re.compile(b"skip(.*)")))
-async def _(e):
-    await skip(e)
-
-
-@cbot.on(events.callbackquery.CallbackQuery(data=re.compile(b"stats(.*)")))
-async def _(e):
-    await stats(e)
-
-
-@cbot.on(events.callbackquery.CallbackQuery(data=re.compile(b"encc(.*)")))
-async def _(e):
-    await encc(e)
-
-
-@cbot.on(events.callbackquery.CallbackQuery(data=re.compile(b"sencc(.*)")))
-async def _(e):
-    await sencc(e)
-
-
-@cbot.on(events.callbackquery.CallbackQuery(data=re.compile(b"ccom(.*)")))
-async def _(e):
-    await ccom(e)
-
-
-@cbot.on(events.callbackquery.CallbackQuery(data=re.compile(b"back(.*)")))
-async def _(e):
-    await back(e)
-
-
-@cbot.on(events.callbackquery.CallbackQuery(data=re.compile("ihelp")))
-async def _(e):
-    await ihelp(e)
-
-
-@cbot.on(events.callbackquery.CallbackQuery(data=re.compile("beck")))
-async def _(e):
-    await beck(e)
-
-
-########## Direct ###########
-
-
-@cbot.on(events.NewMessage(pattern="/eval"))
-async def _(e):
-    await eval(e)
-
-
-@cbot.on(events.NewMessage(pattern="/bash"))
-async def _(e):
-    await bash(e)
-
-
-########## AUTO ###########
-
-
-@cbot.on(events.NewMessage(incoming=True))
-async def _(e):
-    await encod(e)
-
-
-########### Start ############
-
-LOGS.info("Bot has started.")
-cbot.run_until_disconnected()
+print("Bot is alive! Go to Telegram and press /start")
+bot.run_until_disconnected()
