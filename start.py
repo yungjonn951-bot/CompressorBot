@@ -12,27 +12,22 @@
 #
 #    License can be found in <https://github.com/1Danish-00/CompressorBot/blob/main/License>
 
+# 1. Imports first
+from telethon import TelegramClient, events
 import os
-import sys
-import logging
-from telethon import TelegramClient,events
 
-# --- 1. THE PATH FIXER ---
-# This ensures the bot can see the 'helper' folder
-sys.path.append(os.getcwd())
+# 2. Define the bot/client next
+API_ID = int(os.environ.get("API_ID"))
+API_HASH = os.environ.get("API_HASH")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
-# --- 2. THE IMPORTS ---
-try:
-    from helper.stuff import start, ihelp
-except ImportError:
-    # Fallback if the folder structure is flat
-    from stuff import start, ihelp
+# THIS LINE MUST BE ABOVE THE @bot.on LINES
+bot = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
-# --- 3. CONFIGURATION ---
-# It is better to use Environment Variables on Render
-API_ID = int(os.environ.get("API_ID", 0))
-API_HASH = os.environ.get("API_HASH", "")
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+# 3. Then add the handlers
+@bot.on(events.NewMessage(pattern='/start'))
+async def start_handler(event):
+    # your code here
 
 # Logging to help you see errors in Render logs
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
