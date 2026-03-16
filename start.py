@@ -15,8 +15,7 @@
 import os
 import sys
 import logging
-from telethon import 
-TelegramClient, events
+from telethon import TelegramClient,events
 
 # --- 1. THE PATH FIXER ---
 # This ensures the bot can see the 'helper' folder
