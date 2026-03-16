@@ -12,7 +12,6 @@
 #
 #    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
 
-
 # --- START COMMAND ---
 async def start(event):
     try:
