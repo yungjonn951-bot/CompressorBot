@@ -56,8 +56,6 @@ async def help(event):
         ]
     )
 
-    )
-
 
 async def ihelp(event):
     await event.edit(
