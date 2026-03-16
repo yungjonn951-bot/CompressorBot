@@ -15,8 +15,8 @@
 
 import os
 import sys
-from telethon import
-TelegramClient, events
+sys.path.append(os.getcwd())
+
 
 LOGS.info("Starting...")
 
