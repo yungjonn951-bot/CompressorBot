@@ -17,7 +17,7 @@ from flask import Flask
 from threading import Thread
 from telethon import TelegramClient, events, Button
 
-# --- 1. THE STAY-ALIVE SERVER ---
+# --- 1. THE STAY-ALIVE SERVER (Render Health Check) ---
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is Online"
@@ -32,55 +32,49 @@ API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = TelegramClient('bot_session', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
-# --- 3. SMART IMPORT & FUNCTION SCANNER ---
+# --- 3. IMPORT COMPRESSOR LOGIC ---
 import helper.stuff as stuff
 available_funcs = dir(stuff)
 
 # --- 4. THE HANDLERS ---
 
-# Handle /start - This sends the menu buttons
+# Handle /start
 @bot.on(events.NewMessage(pattern='/start'))
 async def start_h(event):
     if 'start' in available_funcs:
         await stuff.start(event)
     else:
-        # Fallback if your helper doesn't have a start function
-        await event.reply("Welcome! Send me a video and then choose the quality.")
+        await event.reply("Bot is online! Send a video to begin.")
 
-# Handle VIDEO SENSING
+# Handle Video Sensing (Triggers the menu)
 @bot.on(events.NewMessage)
 async def video_h(event):
-    if event.video or event.document:
-        # Many bots send a button menu AS SOON as a video is received
-        # If your bot doesn't do that, it will try to compress immediately
-        try:
-            if 'compress_video' in available_funcs:
-                # We try to run it with a default, but if it fails, 
-                # the buttons below will handle the specific choice.
-                await stuff.compress_video(event, bot, quality="medium")
-        except Exception as e:
-            print(f"Waiting for button click or auto-compress error: {e}")
+    if event.video or (event.document and "video" in (event.document.mime_type or "")):
+        # Most bots use on_video to show the buttons
+        if 'on_video' in available_funcs:
+            await stuff.on_video(event, bot)
 
-# --- 5. THE BUTTON CLICK IMPROVEMENT ---
-# This is the "secret sauce" for the menu buttons
+# --- 5. THE BUTTON CLICK FIX (Callback Handler) ---
 @bot.on(events.CallbackQuery)
 async def callback_handler(event):
-    # 'data' is what the button sends back (e.g., b'low', b'medium')
-    choice = event.data.decode('utf-8')
+    # This turns b'low' into 'low'
+    quality_choice = event.data.decode('utf-8')
     
-    # We must answer the callback so the "loading" circle stops on Telegram
-    await event.answer(f"Quality selected: {choice}")
-    
-    try:
-        # This calls your compression function with the button you clicked!
-        if 'compress_video' in available_funcs:
-            # We fetch the original video message the buttons were attached to
-            msg = await event.get_message()
-            await stuff.compress_video(msg, bot, quality=choice)
-        else:
-            await event.edit(f"Function 'compress_video' not found. Available: {available_funcs}")
-    except Exception as e:
-        await event.edit(f"Button Error: {e}")
+    # Answer the click so the loading icon disappears
+    await event.answer(f"Selected: {quality_choice}")
 
-print("Bot is LIVE. Listening for videos and button clicks.")
+    try:
+        if 'compress_video' in available_funcs:
+            # We get the original message that had the video
+            msg = await event.get_message()
+            
+            # WE PASS THE QUALITY HERE - This fixes your 'missing argument' error
+            await stuff.compress_video(msg, bot, quality=quality_choice)
+        else:
+            await event.edit(f"Function 'compress_video' not found in stuff.py")
+    except Exception as e:
+        await event.reply(f"Button Error: {e}")
+
+print("Bot is LIVE. Listening for videos and button clicks...")
 bot.run_until_disconnected()
+
