@@ -11,11 +11,10 @@
 #    General Public License for more details.
 #
 #    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
+import os
+import sys
 from telethon import Button,
 events
-import sys
-import os
-sys.path.append(os.getcwd())
 
 # This ensures the bot finds the 'helper' folder correctly
 
