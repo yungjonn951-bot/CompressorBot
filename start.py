@@ -14,8 +14,7 @@
 import os
 import sys
 import logging
-from telethon import TelegramClient,
-events
+from telethon import TelegramClient,events
 
 # 1. Path Setup
 sys.path.append(os.getcwd())
