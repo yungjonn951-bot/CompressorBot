@@ -12,149 +12,67 @@
 #
 #    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
 
-from telethon import Button,events *
+from telethon import Button, events
+from helper.utils import GetFullUserRequest
 
-
-async def up(event):
-    if not event.is_private:
-        return
-    stt = dt.now()
-    ed = dt.now()
-    v = ts(int((ed - uptime).seconds) * 1000)
-    ms = (ed - stt).microseconds / 1000
-    p = f"🌋Pɪɴɢ = {ms}ms"
-    await event.reply(v + "\n" + p)
-
-
+# --- START COMMAND ---
 async def start(event):
-    ok = await event.client(GetFullUserRequest(event.sender_id))
+    try:
+        # Get user info safely
+        ok = await event.client(GetFullUserRequest(event.sender_id))
+        first_name = ok.users[0].first_name
+    except:
+        first_name = "User"
+
     await event.reply(
-    "**Welcome to PrivComBot!** 🗜️
-\n\n"
-    "I am ready to compress your videos. Please send a file to begin.",
-    buttons=[
-        [
-            Button.inline("⚙️ Settings", data="settings"),
-            Button.inline("📖 Help", data="help")
-        ],
-        [
-            Button.url("👨‍💻 Developer", "https://t.me/YUNG_JONN_007")
-        ]
-    ]
-)
-
-                Button.url("SOURCE CODE", url="github.com/yungjonn951-bot/CompressorBot"),
-                
-
-
-async def help(event):
-    await event.reply(
-        "**Welcome to PrivComBot!** 🗜️\n\n"
-        "Send me any video to begin compressing. Use the buttons below to manage your settings or get help.",
+        f"Hi `{first_name}`! **I am PrivComBot** 🗜️\n\n"
+        "I can compress your videos to save data while maintaining quality.\n\n"
+        "**How to use:** Just send me a video file!",
         buttons=[
             [
                 Button.inline("⚙️ Settings", data="settings"),
                 Button.inline("📖 Help", data="help")
             ],
             [
-                Button.url("👨‍💻 Developer", "https://t.me/YUNG_JONN_007"),
+                Button.url("👨‍💻 Developer", "https://https://t.me/YUNG_JONN_007"),
                 Button.url("🛡️ Privacy Policy", "https://telegra.ph/PrivComBot-Privacy-Policy")
             ]
         ]
     )
 
-
+# --- HELP COMMAND ---
 async def ihelp(event):
-    await event.edit(
-        "**Welcome to PrivComBot!** 🗜️\n\n"
-        "Send me any video to begin compressing...",
-        buttons=[Button.inline("BACK", data="beck")],
-    )
-
-
-async def beck(event):
-    ok = await event.client(GetFullUserRequest(event.sender_id))
-    await event.edit(
-        "**Welcome to PrivComBot!** 🗜️\n\n"
-        "Send me any video to begin compressing...",
-        buttons=[Button.inline("BACK", data="beck")],
-    )
+    await event.reply(
+        "**PrivComBot Help Menu** 📖\n\n"
+        "1. **Compress:** Send any video file/link.\n"
+        "2. **Settings:** Change output quality.\n"
+        "3. **Speed:** Compression depends on file size.\n\n"
+        "Need more help? Contact the developer below.",
         buttons=[
-            [Button.inline("HELP", data="ihelp")],
-            [
-                Button.url("SOURCE CODE", url="github.com/yungjonn951-bot/"),
-                Button.url("DEVELOPER", url="t.me/YUNG_JONN_007"),
-            ],
-        ],
+            [Button.url("💬 Support Group", "https://https://t.me/YUNG_JONN_007")],
+            [Button.inline("⬅️ Back", data="start_back")]
+        ]
     )
 
-
-async def sencc(e):
-    key = e.pattern_match.group(1).decode("UTF-8")
-    await e.edit(
-        "Choose Mode",
-        buttons=[
-            [
-                Button.inline("Default Compress", data=f"encc{key}"),
-                Button.inline("Custom Compress", data=f"ccom{key}"),
-            ],
-            [Button.inline("Back", data=f"back{key}")],
-        ],
-    )
-
-
-async def back(e):
-    key = e.pattern_match.group(1).decode("UTF-8")
-    await e.edit(
-        "🐠  **What To Do** 🐠",
-        buttons=[
-            [
-                Button.inline("GENERATE SAMPLE", data=f"gsmpl{key}"),
-                Button.inline("SCREENSHOTS", data=f"sshot{key}"),
-            ],
-            [Button.inline("COMPRESS", data=f"sencc{key}")],
-        ],
-    )
-
-
-async def ccom(e):
-    await e.edit("Send Ur Custom Name For That File")
-    wah = e.pattern_match.group(1).decode("UTF-8")
-    wh = decode(wah)
-    out, dl, thum, dtime = wh.split(";")
-    chat = e.sender_id
-    async with e.client.conversation(chat) as cv:
-        reply = cv.wait_event(events.NewMessage(from_users=chat))
-        repl = await reply
-        if "." in repl.text:
-            q = repl.text.split(".")[-1]
-            g = repl.text.replace(q, "mkv")
-        else:
-            g = repl.text + ".mkv"
-        outt = f"encode/{chat}/{g}"
-        x = await repl.reply(
-            f"Custom File Name : {g}\n\nSend Thumbnail Picture For it."
-        )
-        replyy = cv.wait_event(events.NewMessage(from_users=chat))
-        rep = await replyy
-        if rep.media:
-            tb = await e.client.download_media(rep.media, f"thumb/{chat}.jpg")
-        elif rep.text and not (rep.text).startswith("/"):
-            url = rep.text
-            os.system(f"wget {url}")
-            tb = url.replace("https://telegra.ph/file/", "")
-        else:
-            tb = thum
-        omk = await rep.reply(f"Thumbnail {tb} Setted Successfully")
-        hehe = f"{outt};{dl};{tb};{dtime}"
-        key = code(hehe)
-        await customenc(omk, key)
+# --- BUTTON CLICK HANDLER (The Brain) ---
 @bot.on(events.CallbackQuery)
 async def callback(event):
     if event.data == b'settings':
-        await event.answer("Opening Settings...", alert=False)
-        await event.edit("**Bot Settings**\nSelect your preferred compression quality:")
+        await event.answer("Settings coming soon!", alert=True)
+        
     elif event.data == b'help':
-        await event.answer()
-        await event.edit("**How to use:**\nJust send me a video file!")
-
+        await event.edit(
+            "**How to use PrivComBot:**\n\n"
+            "Just send a video to the bot and it will automatically start compressing it.",
+            buttons=[Button.inline("⬅️ Back", data="start_back")]
+        )
+        
+    elif event.data == b'start_back':
+        # This returns the user to the main menu
+        await event.edit(
+            "**Main Menu** 🗜️\nChoose an option:",
+            buttons=[
+                [Button.inline("⚙️ Settings", data="settings"), Button.inline("📖 Help", data="help")],
+                [Button.url("👨‍💻 Developer", "https://https://t.me/YUNG_JONN_007")]
+            ]
+        )
