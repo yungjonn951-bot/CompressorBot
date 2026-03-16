@@ -12,7 +12,7 @@
 #
 #    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
 
- import os
+import os
 import sys
 from telethon import Button, events
 
