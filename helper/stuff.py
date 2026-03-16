@@ -16,41 +16,27 @@ import os
 import sys
 from telethon import Button, events
 
-# This handles both ways the bot might try to load the file
+# This line fixes the "No module named utils" error
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 try:
     from utils import GetFullUserRequest
 except ImportError:
+    # Backup if Render is being difficult
     from helper.utils import GetFullUserRequest
 
-# --- START COMMAND ---
 async def start(event):
     try:
         ok = await event.client(GetFullUserRequest(event.sender_id))
         first_name = ok.users[0].first_name
-    except:
+    except Exception:
         first_name = "User"
 
-# --- HELP COMMAND ---
-async def ihelp(event):
     await event.reply(
-        "**PrivComBot Help Menu** 📖\n\n"
-        "1. **Compress:** Send any video file.\n"
-        "2. **Settings:** Change output quality.\n"
-        "Need more help? Contact the developer below.",
-        buttons=[
-            [Button.url("💬 Support", "https://t.me/YUNG_JONN_007")],
-            [Button.inline("⬅️ Back", data="start_back")]
-        ]
+        f"Hi {first_name}! I am **PrivComBot** 🗜️",
+        buttons=[[Button.inline("📖 Help", data="help")]]
     )
 
-# --- BUTTON BRAIN (CALLBACKS) ---
-@bot.on(events.CallbackQuery)
-async def callback(event):
-    if event.data == b'settings':
-        await event.answer("Settings coming soon!", alert=True)
-    elif event.data == b'help':
-        await event.answer()
-        await ihelp(event)
-    elif event.data == b'start_back':
-        await event.answer()
-        await start(event)
+async def ihelp(event):
+    await event.reply("Just send me a video file to begin!")
+
