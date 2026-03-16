@@ -1,6 +1,9 @@
-aiohttp
-python-decouple
-pycryptodome
+
+telethon
+hachoir
+pillow
+python-magic
+cryptg
 https://github.com/1Danish-00/Telethon/archive/master.zip
-html_telegraph_poster
-requests
+
+
