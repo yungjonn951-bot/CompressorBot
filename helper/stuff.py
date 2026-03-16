@@ -13,88 +13,88 @@
 #    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
 
 import os
+import time
+import asyncio
+import subprocess
 from motor.motor_asyncio import AsyncIOMotorClient
 from telethon import Button
 
-# --- 1. DATABASE SETUP ---
-# serverSelectionTimeoutMS=5000 tells the bot to give up after 5 seconds 
-# instead of hanging forever if the connection is bad.
+# --- DATABASE SETUP ---
 MONGO_URI = os.getenv("MONGO_URI")
 db_client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
 db = db_client["PrivComBot"]
 users_col = db["users"]
 
-# --- 2. DATABASE HELPER ---
+# --- USER HELPERS ---
 async def add_user(user_id):
-    """Saves the user to MongoDB so they can receive broadcasts later."""
     try:
-        await users_col.update_one(
-            {"user_id": user_id}, 
-            {"$set": {"user_id": user_id}}, 
-            upsert=True
-        )
-    except Exception as e:
-        print(f"❌ Database Error in add_user: {e}")
+        await users_col.update_one({"user_id": user_id}, {"$set": {"user_id": user_id}}, upsert=True)
+    except: pass
 
-# --- 3. THE START COMMAND ---
+async def get_stats(event):
+    count = await users_col.count_documents({})
+    await event.reply(f"📊 **PrivComBot Stats**\n\nTotal Users: `{count}`")
+
+# --- COMMANDS ---
 async def start(event):
-    """The /start command logic."""
-    first_name = "User"
-    try:
-        # Fetching the user's name for a personalized welcome
-        from helper.utils import GetFullUserRequest
-        ok = await event.client(GetFullUserRequest(event.sender_id))
-        first_name = ok.users[0].first_name
-    except Exception:
-        pass
-
-    # Sending the welcome message with the Help button
     await event.reply(
-        f"Hi {first_name}! I am **PrivComBot** 🤖\n\n"
-        "I am a high-speed video compressor bot. Send me any video file, "
-        "and I will reduce the size while keeping the quality high! 🚀",
+        "Hi! I am **PrivComBot** 🤖\nSend me a video to start compressing!",
         buttons=[[Button.inline("📖 Help", data="help")]]
     )
 
-# --- 4. THE BROADCAST COMMAND ---
-async def broadcast(event, bot, OWNER_ID):
-    """Broadcasts a replied message to all users in the database."""
-    if event.sender_id != OWNER_ID:
-        return await event.reply("❌ This command is for the Owner only.")
-    
-    if not event.reply_to_msg_id:
-        return await event.reply("Please **reply** to a message to broadcast it.")
-    
-    msg = await event.get_reply_message()
-    status = await event.reply("🚀 Starting broadcast...")
-    
-    sent = 0
-    total = 0
-    
-    try:
-        async for user_doc in users_col.find():
-            total += 1
-            try:
-                await bot.send_message(user_doc["user_id"], msg)
-                sent += 1
-            except Exception:
-                # This happens if a user blocked the bot
-                pass 
-        
-        await status.edit(f"✅ **Broadcast complete!**\n\n"
-                          f"👤 Total Users: `{total}`\n"
-                          f"📤 Sent: `{sent}`\n"
-                          f"🚫 Failed/Blocked: `{total - sent}`")
-    except Exception as e:
-        await status.edit(f"❌ Broadcast failed: {e}")
-
-# --- 5. THE HELP COMMAND ---
 async def ihelp(event):
-    """The /help command logic."""
-    await event.reply(
-        "**PrivComBot Help Menu**\n\n"
-        "1️⃣ Send me any Video file.\n"
-        "2️⃣ Choose your compression settings (Coming soon).\n"
-        "3️⃣ Wait for the processed file!\n\n"
-        "Queries? Contact the owner."
-    )
+    await event.reply("Just send any video file, then choose the quality!")
+
+# --- BROADCAST ---
+async def broadcast(event, bot, OWNER_ID):
+    if event.sender_id != OWNER_ID: return
+    msg = await event.get_reply_message()
+    if not msg: return await event.reply("Reply to a message!")
+    status = await event.reply("🚀 Broadcasting...")
+    sent = 0
+    async for user in users_col.find():
+        try:
+            await bot.send_message(user["user_id"], msg)
+            sent += 1
+        except: pass
+    await status.edit(f"✅ Sent to `{sent}` users.")
+
+# --- COMPRESSION ENGINE ---
+async def compress_video(event, bot, quality):
+    # Mapping quality to CRF (Lower is better quality, higher is smaller size)
+    crf_values = {"low": "30", "med": "24", "high": "20"}
+    crf = crf_values.get(quality, "24")
+
+    status = await event.edit("📥 **Downloading video...**")
+    input_path = f"video_{event.chat_id}.mp4"
+    output_path = f"compressed_{event.chat_id}.mp4"
+
+    try:
+        # Download the file
+        original_msg = await event.get_reply_message()
+        await bot.download_media(original_msg, input_path)
+        
+        await status.edit(f"⚙️ **Compressing to {quality.upper()}...**\nThis takes time, please wait.")
+        
+        # FFmpeg Command
+        cmd = [
+            "ffmpeg", "-i", input_path, 
+            "-vcodec", "libx264", "-crf", crf, 
+            "-preset", "veryfast", "-acodec", "aac", "-y", output_path
+        ]
+        
+        # Run FFmpeg
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process.wait()
+
+        await status.edit("📤 **Uploading compressed video...**")
+        await bot.send_file(event.chat_id, output_path, caption=f"✅ Compressed to {quality.upper()} quality.")
+        await status.delete()
+
+    except Exception as e:
+        await event.reply(f"❌ Error: {str(e)}")
+    
+    finally:
+        # Cleanup files to save Render disk space
+        if os.path.exists(input_path): os.remove(input_path)
+        if os.path.exists(output_path): os.remove(output_path)
