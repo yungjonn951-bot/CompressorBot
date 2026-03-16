@@ -23,42 +23,54 @@ from telethon import TelegramClient, events
 logging.basicConfig(level=logging.INFO)
 sys.path.append(os.getcwd())
 
-# --- 2. STAY-ALIVE SERVER (For Render) ---
+# --- 2. STAY-ALIVE SERVER ---
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is Online"
 
 def run():
-    # Render MUST see activity on this port
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
 Thread(target=run, daemon=True).start()
 
-# --- 3. BOT CONFIG ---
-bot = TelegramClient('bot', int(os.getenv("API_ID")), os.getenv("API_HASH")).start(bot_token=os.getenv("BOT_TOKEN"))
+# --- 3. BOT INITIALIZATION ---
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# --- 4. THE COMPRESSION LOGIC ---
-# We use a "Safe Import" so the bot doesn't crash if names are wrong
+bot = TelegramClient('bot_session', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+
+# Import the compressor logic
 try:
     from helper.stuff import start as cmd_start, on_video
-except ImportError:
-    print("Warning: Could not import some functions from stuff.py")
+    print("Successfully imported compression logic!")
+except Exception as e:
+    print(f"IMPORT ERROR: {e}")
 
+# --- 4. THE HANDLERS ---
+
+# Handle /start
 @bot.on(events.NewMessage(pattern='/start'))
 async def start_h(event):
     await cmd_start(event)
 
-# THIS IS THE PART THAT COMPRESSES VIDEOS
-@bot.on(events.NewMessage(incoming=True))
-async def video_h(event):
-    # If the message has a video or is a document/file
-    if event.video or event.document:
+# THE AGGRESSIVE VIDEO SCANNER (Works for forwarded videos too)
+@bot.on(events.NewMessage)
+async def global_handler(event):
+    # Log everything to Render so you can see the bot is working
+    print(f"Message received! Video: {bool(event.video)}, Doc: {bool(event.document)}")
+
+    # If it's a video OR a document that looks like a video
+    is_video = event.video or (event.document and event.document.mime_type and "video" in event.document.mime_type)
+    
+    if is_video:
+        print("Video detected! Sending to compressor...")
         try:
-            # This triggers the code in your helper/stuff.py
             await on_video(event, bot)
         except Exception as e:
-            print(f"Compression error: {e}")
+            print(f"COMPRESSION CRASH: {e}")
+            await event.reply(f"Error starting compression: {e}")
 
-print("Bot is started. Send a video now!")
+print("Bot is fully active. SEND A VIDEO NOW.")
 bot.run_until_disconnected()
