@@ -19,59 +19,46 @@ from flask import Flask
 from threading import Thread
 from telethon import TelegramClient, events
 
-# --- SETUP ---
-sys.path.append(os.getcwd())
+# --- 1. SETUP ---
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+sys.path.append(os.getcwd())
 
+# --- 2. STAY-ALIVE SERVER (For Render) ---
 app = Flask('')
-
 @app.route('/')
-def home():
-    return "Bot is alive"
+def home(): return "Bot is Online"
 
 def run():
+    # Render MUST see activity on this port
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
-def keep_alive():
-    t = Thread(target=run)
-    t.daemon = True
-    t.start()
+Thread(target=run, daemon=True).start()
 
-# Start the keep-alive server immediately
-keep_alive()
+# --- 3. BOT CONFIG ---
+bot = TelegramClient('bot', int(os.getenv("API_ID")), os.getenv("API_HASH")).start(bot_token=os.getenv("BOT_TOKEN"))
 
-# --- CONFIG ---
-API_ID = os.getenv("API_ID")
-API_HASH = os.getenv("API_HASH")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-
-bot = TelegramClient('bot', int(API_ID), API_HASH).start(bot_token=BOT_TOKEN)
-
-# IMPORT ALL FUNCTIONS FROM STUFF.PY
-# We use 'try/except' so if one function is missing, the bot doesn't crash
+# --- 4. THE COMPRESSION LOGIC ---
+# We use a "Safe Import" so the bot doesn't crash if names are wrong
 try:
-    from helper.stuff import start as start_func, help as help_func, on_video
-except ImportError as e:
-    logger.error(f"Could not import helper functions: {e}")
-
-# --- HANDLERS ---
+    from helper.stuff import start as cmd_start, on_video
+except ImportError:
+    print("Warning: Could not import some functions from stuff.py")
 
 @bot.on(events.NewMessage(pattern='/start'))
-async def handler_start(event):
-    await start_func(event)
+async def start_h(event):
+    await cmd_start(event)
 
-@bot.on(events.NewMessage(pattern='/help'))
-async def handler_help(event):
-    await help_func(event)
+# THIS IS THE PART THAT COMPRESSES VIDEOS
+@bot.on(events.NewMessage(incoming=True))
+async def video_h(event):
+    # If the message has a video or is a document/file
+    if event.video or event.document:
+        try:
+            # This triggers the code in your helper/stuff.py
+            await on_video(event, bot)
+        except Exception as e:
+            print(f"Compression error: {e}")
 
-# THIS IS THE COMPRESSION TRIGGER
-@bot.on(events.NewMessage(incoming=True, func=lambda e: e.video or e.document))
-async def handler_video(event):
-    # Only try to compress if it's a video file
-    if event.video or (event.document and event.document.mime_type.startswith('video/')):
-        await on_video(event, bot)
-
-print("Bot is fully online. Send a video to test.")
+print("Bot is started. Send a video now!")
 bot.run_until_disconnected()
