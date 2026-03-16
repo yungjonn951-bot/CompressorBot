@@ -18,66 +18,58 @@ import logging
 import asyncio
 from threading import Thread
 from flask import Flask
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, Button
 
-# --- 1. SYSTEM & LOGGING SETUP ---
+# --- SETUP ---
 sys.path.append(os.getcwd())
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# --- 2. RENDER KEEP-ALIVE (FLASK) ---
 app = Flask('')
-@app.route('/')
-def home(): return "PrivComBot is Running!"
 
-def run_flask():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
+@app.route('/')
+def home(): return "Bot is Online"
 
 def keep_alive():
-    t = Thread(target=run_flask)
+    t = Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080))))
     t.daemon = True
     t.start()
 
-# --- 3. ENVIRONMENT VARIABLES ---
 API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
-MONGO_URI = os.getenv("MONGO_URI")
 
-# --- 4. INITIALIZE CLIENT ---
 bot = TelegramClient('bot', int(API_ID), API_HASH).start(bot_token=BOT_TOKEN)
+from helper.stuff import start, ihelp, broadcast, add_user, get_stats, compress_video
 
-# Import logic from helper/stuff.py
-from helper.stuff import start, ihelp, broadcast, add_user
-
-# --- 5. COMMAND HANDLERS ---
-
+# --- HANDLERS ---
 @bot.on(events.NewMessage(pattern='/start'))
-async def start_handler(event):
-    # This block prevents the bot from staying silent if MongoDB fails
-    try:
-        # Try to save user with a 5-second timeout
-        await asyncio.wait_for(add_user(event.sender_id), timeout=5.0)
-    except Exception as e:
-        logger.error(f"MongoDB Error: {e}")
-        print("⚠️ Database connection failed, but continuing to reply...")
+async def h_start(e):
+    await add_user(e.sender_id)
+    await start(e)
 
-    # The bot will now always reply even if the database is down
-    await start(event)
-
-@bot.on(events.NewMessage(pattern='/help'))
-async def help_handler(event):
-    await ihelp(event)
+@bot.on(events.NewMessage(pattern='/stats'))
+async def h_stats(e): await get_stats(e)
 
 @bot.on(events.NewMessage(pattern='/broadcast'))
-async def broadcast_handler(event):
-    await broadcast(event, bot, OWNER_ID)
+async def h_brd(e): await broadcast(e, bot, OWNER_ID)
 
-# --- 6. STARTUP ---
+@bot.on(events.NewMessage(incoming=True, func=lambda e: e.video or e.document))
+async def video_handler(event):
+    if event.document and not event.document.mime_type.startswith('video/'): return 
+    await event.reply(
+        "🎬 **Video Received!** Choose Quality:",
+        buttons=[
+            [Button.inline("📉 Low", data="qual_low"), Button.inline("📊 Med", data="qual_med")],
+            [Button.inline("📈 High", data="qual_high")]
+        ]
+    )
+
+@bot.on(events.CallbackQuery(pattern=r"qual_"))
+async def quality_callback(event):
+    quality = event.data.decode('utf-8').split('_')[1]
+    await compress_video(event, bot, quality)
+
 if __name__ == "__main__":
-    print("✅ PrivComBot is booting...")
     keep_alive()
-    print("🚀 Bot is online. Testing response now!")
     bot.run_until_disconnected()
+
