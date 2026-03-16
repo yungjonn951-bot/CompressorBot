@@ -1,5 +1,5 @@
 #    This file is part of the CompressorBot distribution.
-#    Copyright (c) 2021 yungjonn951bot
+#    Copyright (c) 2021 yungjonn951-bot
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -10,7 +10,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 #    General Public License for more details.
 #
-#    License can be found in < https://github.com/yungjonn951bot/CompressorBot/blob/main/License> .
+#    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
 
 from telethon import Button,events *
 
@@ -33,7 +33,7 @@ async def start(event):
         buttons=[
             [Button.inline("HELP", data="ihelp")],
             [
-                Button.url("SOURCE CODE", url="github.com/yungjonn951bot/CompressorBot"),
+                Button.url("SOURCE CODE", url="github.com/yungjonn951-bot/CompressorBot"),
                 Button.url("DEVELOPER", url="t.me/YUNG_JONN_007"),
             ],
         ],
@@ -72,7 +72,7 @@ async def beck(event):
         buttons=[
             [Button.inline("HELP", data="ihelp")],
             [
-                Button.url("SOURCE CODE", url="github.com/yungjonn951bot/"),
+                Button.url("SOURCE CODE", url="github.com/yungjonn951-bot/"),
                 Button.url("DEVELOPER", url="t.me/YUNG_JONN_007"),
             ],
         ],
