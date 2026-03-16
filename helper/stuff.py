@@ -13,43 +13,54 @@
 #    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
 
 import os
-import time
 import asyncio
 import subprocess
 from motor.motor_asyncio import AsyncIOMotorClient
 from telethon import Button
 
-# --- DATABASE SETUP ---
+# --- 1. DATABASE SETUP ---
 MONGO_URI = os.getenv("MONGO_URI")
 db_client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
 db = db_client["PrivComBot"]
 users_col = db["users"]
 
-# --- USER HELPERS ---
+# --- 2. USER HELPERS ---
 async def add_user(user_id):
+    """Saves user ID to MongoDB."""
     try:
-        await users_col.update_one({"user_id": user_id}, {"$set": {"user_id": user_id}}, upsert=True)
-    except: pass
+        await users_col.update_one(
+            {"user_id": user_id}, 
+            {"$set": {"user_id": user_id}}, 
+            upsert=True
+        )
+    except Exception as e:
+        print(f"❌ DB Error: {e}")
 
 async def get_stats(event):
+    """Returns total user count."""
     count = await users_col.count_documents({})
     await event.reply(f"📊 **PrivComBot Stats**\n\nTotal Users: `{count}`")
 
-# --- COMMANDS ---
+# --- 3. UI COMMANDS ---
 async def start(event):
     await event.reply(
-        "Hi! I am **PrivComBot** 🤖\nSend me a video to start compressing!",
+        "Hi! I am **PrivComBot** 🤖\n\nSend me a video file to begin compression!",
         buttons=[[Button.inline("📖 Help", data="help")]]
     )
 
 async def ihelp(event):
-    await event.reply("Just send any video file, then choose the quality!")
+    await event.reply(
+        "**How to use:**\n1. Send a video.\n2. Select quality.\n3. Wait for the link!"
+    )
 
-# --- BROADCAST ---
+# --- 4. BROADCAST ---
 async def broadcast(event, bot, OWNER_ID):
-    if event.sender_id != OWNER_ID: return
+    if event.sender_id != OWNER_ID:
+        return await event.reply("❌ Owner only.")
     msg = await event.get_reply_message()
-    if not msg: return await event.reply("Reply to a message!")
+    if not msg:
+        return await event.reply("Reply to a message to broadcast.")
+    
     status = await event.reply("🚀 Broadcasting...")
     sent = 0
     async for user in users_col.find():
@@ -59,42 +70,56 @@ async def broadcast(event, bot, OWNER_ID):
         except: pass
     await status.edit(f"✅ Sent to `{sent}` users.")
 
-# --- COMPRESSION ENGINE ---
+# --- 5. COMPRESSION ENGINE ---
 async def compress_video(event, bot, quality):
-    # Mapping quality to CRF (Lower is better quality, higher is smaller size)
-    crf_values = {"low": "30", "med": "24", "high": "20"}
-    crf = crf_values.get(quality, "24")
+    """Downloads, compresses via FFmpeg, and uploads."""
+    # CRF: 18-28 is standard. Higher = smaller file/lower quality.
+    crf_map = {"low": "30", "med": "24", "high": "20"}
+    crf = crf_map.get(quality, "24")
 
-    status = await event.edit("📥 **Downloading video...**")
-    input_path = f"video_{event.chat_id}.mp4"
-    output_path = f"compressed_{event.chat_id}.mp4"
+    # Use unique filenames based on event ID to avoid conflicts
+    input_path = f"in_{event.id}.mp4"
+    output_path = f"out_{event.id}.mp4"
 
+    status = await event.edit("📥 **Downloading...**")
+    
     try:
-        # Download the file
-        original_msg = await event.get_reply_message()
-        await bot.download_media(original_msg, input_path)
+        # Get the original video message
+        reply = await event.get_reply_message()
+        await bot.download_media(reply, input_path)
         
-        await status.edit(f"⚙️ **Compressing to {quality.upper()}...**\nThis takes time, please wait.")
-        
-        # FFmpeg Command
-        cmd = [
-            "ffmpeg", "-i", input_path, 
-            "-vcodec", "libx264", "-crf", crf, 
-            "-preset", "veryfast", "-acodec", "aac", "-y", output_path
-        ]
-        
-        # Run FFmpeg
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        process.wait()
+        await status.edit(f"⚙️ **Compressing ({quality.upper()})...**\nThis uses heavy CPU, please wait.")
 
-        await status.edit("📤 **Uploading compressed video...**")
-        await bot.send_file(event.chat_id, output_path, caption=f"✅ Compressed to {quality.upper()} quality.")
+        # FFmpeg command optimized for Render (ultrafast)
+        cmd = [
+            "ffmpeg", "-i", input_path,
+            "-vcodec", "libx264", "-crf", crf,
+            "-preset", "ultrafast", 
+            "-acodec", "aac", "-y", output_path
+        ]
+
+        # Run process and wait
+        process = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        )
+        await process.communicate()
+
+        if not os.path.exists(output_path):
+            return await status.edit("❌ Compression failed. Check logs.")
+
+        await status.edit("📤 **Uploading...**")
+        await bot.send_file(
+            event.chat_id, 
+            output_path, 
+            caption=f"✅ **Done!**\nQuality: {quality.upper()}"
+        )
         await status.delete()
 
     except Exception as e:
         await event.reply(f"❌ Error: {str(e)}")
     
     finally:
-        # Cleanup files to save Render disk space
-        if os.path.exists(input_path): os.remove(input_path)
-        if os.path.exists(output_path): os.remove(output_path)
+        # Cleanup to prevent Render disk full errors
+        for path in [input_path, output_path]:
+            if os.path.exists(path):
+                os.remove(path)
