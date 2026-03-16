@@ -12,15 +12,14 @@
 #
 #    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
 from telethon import Button, events
-
 import sys
-from telethon import Button, events
+import os
 
-# This fixes the 'helper.utils' not found error
-try:
-    from helper.utils import GetFullUserRequest
-except ImportError:
-    from helper.utils import GetFullUserRequest
+# This ensures the bot finds the 'helper' folder correctly
+sys.path.append(os.getcwd())
+
+from helper.utils import GetFullUserRequest
+
 
 # --- START COMMAND ---
 async def start(event):
