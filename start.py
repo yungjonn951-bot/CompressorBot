@@ -13,7 +13,10 @@
 #    License can be found in <https://github.com/1Danish-00/CompressorBot/blob/main/License> .
 
 
-from helper.stuff import start,ihelp *
+import os
+import sys
+from telethon import
+TelegramClient, events
 
 LOGS.info("Starting...")
 
