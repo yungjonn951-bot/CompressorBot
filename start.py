@@ -38,7 +38,6 @@ except Exception as e:
     print(f"CRITICAL ERROR: Could not read Environment Variables. Check Render Settings! Details: {e}")
     sys.exit(1)
 
-
 # Define bot
 bot = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
