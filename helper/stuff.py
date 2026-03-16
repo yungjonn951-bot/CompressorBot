@@ -14,89 +14,125 @@
 
 import os
 import asyncio
-import math
 import time
 from motor.motor_asyncio import AsyncIOMotorClient
 from telethon import Button
 
-# --- DATABASE SETUP ---
+# --- 1. DATABASE SETUP ---
 MONGO_URI = os.getenv("MONGO_URI")
 db_client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
 db = db_client["PrivComBot"]
 users_col = db["users"]
 
-# --- PROGRESS BAR LOGIC ---
-def get_progress_bar(percentage):
-    """Creates a visual progress bar [████░░░░░░]"""
-    completed = int(percentage / 10)
-    return "█" * completed + "░" * (10 - completed)
-
-async def progress_callback(current, total, event, msg_text):
-    """Updates the message with a progress bar during download/upload."""
+# --- 2. PROGRESS BAR & UTILS ---
+def get_prog(current, total):
     percentage = (current / total) * 100
-    bar = get_progress_bar(percentage)
-    
-    # Only update every 5% to avoid Telegram rate limits (flood errors)
-    if int(percentage) % 5 == 0:
-        try:
-            await event.edit(f"{msg_text}\n\n{bar} **{percentage:.1f}%**")
-        except:
-            pass
+    completed = int(percentage / 10)
+    return "█" * completed + "░" * (10 - completed), percentage
 
-# --- USER HELPERS ---
-async def add_user(user_id):
-    try: await users_col.update_one({"user_id": user_id}, {"$set": {"user_id": user_id}}, upsert=True)
+async def prog_cb(cur, tot, event, text):
+    bar, per = get_prog(cur, tot)
+    if int(per) % 10 == 0: # Update every 10% to prevent Telegram spam
+        try:
+            await event.edit(f"{text}\n\n{bar} **{per:.1f}%**")
+        except: pass
+
+def human_size(size_bytes):
+    if size_bytes == 0: return "0B"
+    size_name = ("B", "KB", "MB", "GB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return f"{s} {size_name[i]}"
+
+import math # Needed for size calculation
+
+# --- 3. CORE FUNCTIONS ---
+async def add_user(u_id):
+    try: await users_col.update_one({"user_id": u_id}, {"$set": {"user_id": u_id}}, upsert=True)
     except: pass
 
 async def get_stats(event):
     count = await users_col.count_documents({})
     await event.reply(f"📊 **PrivComBot Stats**\n\nTotal Users: `{count}`")
 
-# --- UI COMMANDS ---
 async def start(event):
     await event.reply("Hi! I am **PrivComBot** 🤖\nSend a video to start!", buttons=[[Button.inline("📖 Help", data="help")]])
 
 async def ihelp(event):
-    await event.reply("**How to use:**\n1. Send a video.\n2. Select quality.\n3. Wait for the file!")
+    await event.reply("**How to use:**\n1. Send a video.\n2. Select quality.\n3. Wait for the magic!")
 
-# --- COMPRESSION ENGINE ---
+async def broadcast(event, bot, owner):
+    if event.sender_id != owner: return
+    msg = await event.get_reply_message()
+    if not msg: return await event.reply("Reply to a message!")
+    status = await event.reply("🚀 Broadcasting...")
+    sent = 0
+    async for user in users_col.find():
+        try:
+            await bot.send_message(user["user_id"], msg)
+            sent += 1
+        except: pass
+    await status.edit(f"✅ Sent to `{sent}` users.")
+
+# --- 4. THE COMPRESSION ENGINE ---
 async def compress_video(event, bot, quality):
     crf_map = {"low": "30", "med": "24", "high": "20"}
     crf = crf_map.get(quality, "24")
     
     input_path = f"in_{event.id}.mp4"
     output_path = f"out_{event.id}.mp4"
-    status = await event.edit("📥 **Starting Download...**")
+    status = await event.edit("📥 **Downloading original file...**")
     
     try:
-        # 1. DOWNLOAD WITH PROGRESS
+        # Get Original Size
         reply = await event.get_reply_message()
-        await bot.download_media(
-            reply, input_path, 
-            progress_callback=lambda c, t: progress_callback(c, t, status, "📥 **Downloading Video...**")
-        )
+        orig_size = reply.video.size if reply.video else reply.document.size
         
-        # 2. COMPRESSION
-        await status.edit(f"⚙️ **Compressing to {quality.upper()}...**\n(This might take a minute)")
+        # 1. Download
+        await bot.download_media(reply, input_path, progress_callback=lambda c, t: prog_cb(c, t, status, "📥 **Downloading...**"))
+        
+        # 2. Compression
+        start_time = time.time()
+        await status.edit(f"⚙️ **Processing {quality.upper()} Quality...**\n_This might take a while depending on size._")
+        
+        # Optimized FFmpeg command for Render
         cmd = ["ffmpeg", "-i", input_path, "-vcodec", "libx264", "-crf", crf, "-preset", "ultrafast", "-acodec", "aac", "-y", output_path]
         
         process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         await process.communicate()
 
-        # 3. UPLOAD WITH PROGRESS
+        # 3. Final Comparison & Upload
         if os.path.exists(output_path):
-            await status.edit("📤 **Starting Upload...**")
+            comp_size = os.path.getsize(output_path)
+            saved_size = orig_size - comp_size
+            saved_percent = (saved_size / orig_size) * 100
+            time_taken = int(time.time() - start_time)
+
+            await status.edit("📤 **Compression done! Uploading...**")
+            
+            caption = (
+                f"✅ **Video Compressed!**\n\n"
+                f"📁 **Original:** `{human_size(orig_size)}`\n"
+                f"💎 **Compressed:** `{human_size(comp_size)}`\n"
+                f"📉 **Saved:** `{human_size(saved_size)}` ({saved_percent:.1f}%)\n"
+                f"⏱ **Time:** `{time_taken}s`"
+            )
+
             await bot.send_file(
                 event.chat_id, output_path, 
-                caption=f"✅ **Done!**\nQuality: {quality.upper()}",
-                progress_callback=lambda c, t: progress_callback(c, t, status, "📤 **Uploading Result...**")
+                caption=caption,
+                progress_callback=lambda c, t: prog_cb(c, t, status, "📤 **Uploading...**")
             )
             await status.delete()
         else:
-            await status.edit("❌ Compression failed.")
+            await status.edit("❌ **Compression Failed!**\nThe file might be corrupted or too large for my server.")
 
     except Exception as e:
-        await event.reply(f"❌ Error: {str(e)}")
+        await event.reply(f"❌ **Error:** `{str(e)}` \n_Try a smaller file._")
+    
     finally:
-        for path in [input_path, output_path]:
-            if os.path.exists(path): os.remove(path)
+        # Cleanup
+        for p in [input_path, output_path]:
+            if os.path.exists(p): os.remove(p)
+
