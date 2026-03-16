@@ -19,7 +19,7 @@ import os
 # This ensures the bot finds the 'helper' folder correctly
 sys.path.append(os.getcwd())
 
-from helper.utils import GetFullUserRequest
+from utils import GetFullUserRequest
 
 # --- START COMMAND ---
 async def start(event):
