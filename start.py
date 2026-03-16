@@ -17,7 +17,7 @@ import sys
 import logging
 from telethon import TelegramClient, events
 
-# --- 1. SETUP PATHS & LOGGING ---
+# --- 1. SYSTEM SETUP ---
 sys.path.append(os.getcwd())
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
@@ -25,47 +25,46 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- 2. SECURE CREDENTIAL CHECK ---
-# We use os.getenv() so it doesn't crash if the variable is missing
-API_ID_ENV = os.getenv("API_ID")
-API_HASH_ENV = os.getenv("API_HASH")
-BOT_TOKEN_ENV = os.getenv("BOT_TOKEN")
+# --- 2. REQUIRED CORE VARIABLES ---
+API_ID = os.getenv("API_ID")
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Check if any variables are missing before trying to use them
-if not all([API_ID_ENV, API_HASH_ENV, BOT_TOKEN_ENV]):
-    logger.error("!!! CONFIGURATION ERROR !!!")
-    if not API_ID_ENV: logger.error("- API_ID is missing in Render Environment tab")
-    if not API_HASH_ENV: logger.error("- API_HASH is missing in Render Environment tab")
-    if not BOT_TOKEN_ENV: logger.error("- BOT_TOKEN is missing in Render Environment tab")
+# --- 3. EXTRA VARIABLES (With Fallbacks) ---
+# If these aren't in Render, the bot uses the second value provided
+OWNER_ID = int(os.getenv("OWNER_ID", 0))
+LOG_CHANNEL = int(os.getenv("LOG_CHANNEL", 0))
+TG_DC = int(os.getenv("TG_DC", 1))
+PORT = int(os.getenv("PORT", 8080))
+PYTHON_VER = os.getenv("PYTHON_VERSION", "3.10")
+
+# --- 4. SAFETY CHECK ---
+if not all([API_ID, API_HASH, BOT_TOKEN]):
+    logger.error("CRITICAL: API_ID, API_HASH, or BOT_TOKEN missing in Render Environment!")
     sys.exit(1)
 
-# Safely convert API_ID to integer
-try:
-    API_ID = int(API_ID_ENV.strip())
-    API_HASH = API_HASH_ENV.strip()
-    BOT_TOKEN = BOT_TOKEN_ENV.strip()
-except ValueError:
-    logger.error("API_ID must be a number! Check your Render settings.")
-    sys.exit(1)
+# --- 5. INITIALIZE CLIENT ---
+# We use the TG_DC parameter here to tell the bot which data center to use
+bot = TelegramClient('bot', int(API_ID), API_HASH, datacenter=TG_DC).start(bot_token=BOT_TOKEN)
 
-# --- 3. IMPORT HANDLERS ---
+# Import handlers from your helper folder
 try:
     from helper.stuff import start, ihelp
-except ImportError as e:
-    logger.error(f"Could not find helper files: {e}")
-    sys.exit(1)
+except ImportError:
+    from stuff import start, ihelp
 
-# --- 4. START THE BOT ---
-bot = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
-
+# --- 6. HANDLERS ---
 @bot.on(events.NewMessage(pattern='/start'))
 async def start_handler(event):
+    # Optional: Log the start command to your Log Channel
+    if LOG_CHANNEL != 0:
+        await bot.send_message(LOG_CHANNEL, f"User {event.sender_id} started the bot.")
     await start(event)
 
 @bot.on(events.NewMessage(pattern='/help'))
 async def help_handler(event):
     await ihelp(event)
 
-print("✅ Bot is online and waiting for messages!")
+print(f"✅ Bot started on Port {PORT} using Python {PYTHON_VER}")
 bot.run_until_disconnected()
 
