@@ -20,6 +20,8 @@ import os
 sys.path.append(os.getcwd())
 
 from utils import GetFullUserRequest
+except ImportError:
+    from helper.utils import GetFullUserRequest
 
 # --- START COMMAND ---
 async def start(event):
