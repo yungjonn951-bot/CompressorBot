@@ -11,14 +11,12 @@
 #    General Public License for more details.
 #
 #    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
-
 from telethon import Button, events
 from helper.utils import GetFullUserRequest
 
 # --- START COMMAND ---
 async def start(event):
     try:
-        # Get user info safely
         ok = await event.client(GetFullUserRequest(event.sender_id))
         first_name = ok.users[0].first_name
     except:
@@ -34,7 +32,7 @@ async def start(event):
                 Button.inline("📖 Help", data="help")
             ],
             [
-                Button.url("👨‍💻 Developer", "https://https://t.me/YUNG_JONN_007"),
+                Button.url("👨‍💻 Developer", "https://t.me/YUNG_JONN_007"),
                 Button.url("🛡️ Privacy Policy", "https://telegra.ph/PrivComBot-Privacy-Policy")
             ]
         ]
@@ -44,35 +42,23 @@ async def start(event):
 async def ihelp(event):
     await event.reply(
         "**PrivComBot Help Menu** 📖\n\n"
-        "1. **Compress:** Send any video file/link.\n"
+        "1. **Compress:** Send any video file.\n"
         "2. **Settings:** Change output quality.\n"
-        "3. **Speed:** Compression depends on file size.\n\n"
         "Need more help? Contact the developer below.",
         buttons=[
-            [Button.url("💬 Support Group", "https://https://t.me/YUNG_JONN_007")],
+            [Button.url("💬 Support", "https://t.me/YUNG_JONN_007")],
             [Button.inline("⬅️ Back", data="start_back")]
         ]
     )
 
-# --- BUTTON CLICK HANDLER (The Brain) ---
+# --- BUTTON BRAIN (CALLBACKS) ---
 @bot.on(events.CallbackQuery)
 async def callback(event):
     if event.data == b'settings':
         await event.answer("Settings coming soon!", alert=True)
-        
     elif event.data == b'help':
-        await event.edit(
-            "**How to use PrivComBot:**\n\n"
-            "Just send a video to the bot and it will automatically start compressing it.",
-            buttons=[Button.inline("⬅️ Back", data="start_back")]
-        )
-        
+        await event.answer()
+        await ihelp(event)
     elif event.data == b'start_back':
-        # This returns the user to the main menu
-        await event.edit(
-            "**Main Menu** 🗜️\nChoose an option:",
-            buttons=[
-                [Button.inline("⚙️ Settings", data="settings"), Button.inline("📖 Help", data="help")],
-                [Button.url("👨‍💻 Developer", "https://https://t.me/YUNG_JONN_007")]
-            ]
-        )
+        await event.answer()
+        await start(event)
