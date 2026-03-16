@@ -12,65 +12,56 @@
 #
 #    License can be found in <https://github.com/1Danish-00/CompressorBot/blob/main/License>
 
-import os
-import sys
-import logging
+import os, sys, logging
 from flask import Flask
 from threading import Thread
 from telethon import TelegramClient, events
 
-# --- 1. SETUP ---
-logging.basicConfig(level=logging.INFO)
-sys.path.append(os.getcwd())
-
-# --- 2. STAY-ALIVE SERVER ---
+# --- 1. THE STAY-ALIVE (DO NOT TOUCH) ---
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is Online"
-
 def run():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
-
 Thread(target=run, daemon=True).start()
 
-# --- 3. BOT INITIALIZATION ---
+# --- 2. BOT LOGIN ---
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-
 bot = TelegramClient('bot_session', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
-# Import the compressor logic
-try:
-    from helper.stuff import start as cmd_start, on_video
-    print("Successfully imported compression logic!")
-except Exception as e:
-    print(f"IMPORT ERROR: {e}")
+# --- 3. THE "SMART" IMPORT ---
+# This part checks what your helper file is actually named
+import helper.stuff as stuff
+available_functions = dir(stuff)
+print(f"DEBUG: Functions found in stuff.py: {available_functions}")
 
 # --- 4. THE HANDLERS ---
 
-# Handle /start
 @bot.on(events.NewMessage(pattern='/start'))
 async def start_h(event):
-    await cmd_start(event)
+    if 'start' in available_functions:
+        await stuff.start(event)
+    else:
+        await event.reply("Bot is online! Send a video to test.")
 
-# THE AGGRESSIVE VIDEO SCANNER (Works for forwarded videos too)
 @bot.on(events.NewMessage)
-async def global_handler(event):
-    # Log everything to Render so you can see the bot is working
-    print(f"Message received! Video: {bool(event.video)}, Doc: {bool(event.document)}")
-
-    # If it's a video OR a document that looks like a video
-    is_video = event.video or (event.document and event.document.mime_type and "video" in event.document.mime_type)
-    
-    if is_video:
-        print("Video detected! Sending to compressor...")
+async def video_h(event):
+    if event.video or event.document:
+        # We try the three most common names for compressor bots
         try:
-            await on_video(event, bot)
+            if 'on_video' in available_functions:
+                await stuff.on_video(event, bot)
+            elif 'compress_video' in available_functions:
+                await stuff.compress_video(event, bot)
+            elif 'video_handler' in available_functions:
+                await stuff.video_handler(event, bot)
+            else:
+                await event.reply(f"Error: I found these functions {available_functions} but none match 'on_video'.")
         except Exception as e:
-            print(f"COMPRESSION CRASH: {e}")
-            await event.reply(f"Error starting compression: {e}")
+            await event.reply(f"Compression error: {e}")
 
-print("Bot is fully active. SEND A VIDEO NOW.")
+print("Bot is LIVE. Send a video.")
 bot.run_until_disconnected()
