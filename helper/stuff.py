@@ -20,7 +20,7 @@ from telethon import Button, events
 try:
     from helper.utils import GetFullUserRequest
 except ImportError:
-    from utils import GetFullUserRequest
+    from helper.utils import GetFullUserRequest
 
 # --- START COMMAND ---
 async def start(event):
