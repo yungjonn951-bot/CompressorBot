@@ -11,18 +11,7 @@
 #    General Public License for more details.
 #
 #    License can be found in < https://github.com/yungjonn951-bot/CompressorBot/blob/main/License> .
-import os
-import sys
-from telethon import Button,
-events
 
-# This ensures the bot finds the 'helper' folder correctly
-
-# This handles both ways the bot might try to load the file
-try:
-    from utils import GetFullUserRequest
-except ImportError:
-    from helper.utils import GetFullUserRequest
 
 # --- START COMMAND ---
 async def start(event):
