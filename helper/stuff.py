@@ -12,7 +12,7 @@
 #
 #    License can be found in < https://github.com/yungjonn951bot/CompressorBot/blob/main/License> .
 
-from .worker import *
+from telethon import Button,events *
 
 
 async def up(event):
