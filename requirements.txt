@@ -6,3 +6,5 @@ cryptg
 https://github.com/1Danish-00/Telethon/archive/master.zip
 flask
 python-dotenv
+motor
+dnspython
