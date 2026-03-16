@@ -17,25 +17,20 @@ import sys
 import logging
 from flask import Flask
 from threading import Thread
-from telethon import TelegramClient, events, Button
+from telethon import TelegramClient, events
 
-# --- SYSTEM SETUP ---
+# --- SETUP ---
 sys.path.append(os.getcwd())
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- STAY ALIVE (FLASK) SERVER ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "PrivComBot Pro is Live and Healthy"
+    return "Bot is alive"
 
 def run():
-    # Render assigns a port dynamically; this ensures we catch it.
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -44,57 +39,39 @@ def keep_alive():
     t.daemon = True
     t.start()
 
-# Start the web server immediately
+# Start the keep-alive server immediately
 keep_alive()
 
 # --- CONFIG ---
 API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = int(os.getenv("OWNER_ID", 0))
 
-# --- BOT INITIALIZATION ---
 bot = TelegramClient('bot', int(API_ID), API_HASH).start(bot_token=BOT_TOKEN)
 
-# Import the logic from your helper file
-# Note: Ensure these function names match exactly what is inside helper/stuff.py
-from helper.stuff import start, help, on_video
+# IMPORT ALL FUNCTIONS FROM STUFF.PY
+# We use 'try/except' so if one function is missing, the bot doesn't crash
+try:
+    from helper.stuff import start as start_func, help as help_func, on_video
+except ImportError as e:
+    logger.error(f"Could not import helper functions: {e}")
 
-# --- BOT HANDLERS ---
+# --- HANDLERS ---
 
-# 1. Handle /start command
 @bot.on(events.NewMessage(pattern='/start'))
-async def start_handler(event):
-    await start(event)
+async def handler_start(event):
+    await start_func(event)
 
-# 2. Handle /help command
 @bot.on(events.NewMessage(pattern='/help'))
-async def help_handler(event):
-    # If your helper file has a specific 'help' function
-    try:
-        await help(event)
-    except Exception as e:
-        logger.error(f"Help error: {e}")
-        await event.reply("Use /start to see available options.")
+async def handler_help(event):
+    await help_func(event)
 
-# 3. Handle Video Files (The Compression Trigger)
+# THIS IS THE COMPRESSION TRIGGER
 @bot.on(events.NewMessage(incoming=True, func=lambda e: e.video or e.document))
-async def video_handler(event):
-    # This sends the video to the compression logic in stuff.py
-    try:
+async def handler_video(event):
+    # Only try to compress if it's a video file
+    if event.video or (event.document and event.document.mime_type.startswith('video/')):
         await on_video(event, bot)
-    except Exception as e:
-        logger.error(f"Compression error: {e}")
 
-# 4. Global Error Handler to prevent the bot from dying
-@bot.on(events.NewMessage)
-async def all_messages(event):
-    # This just ensures the bot stays active for any text
-    pass
-
-# --- START THE ENGINE ---
-print("------------------------------")
-print("PrivComBot Pro is now Online!")
-print("------------------------------")
-
+print("Bot is fully online. Send a video to test.")
 bot.run_until_disconnected()
