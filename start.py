@@ -29,10 +29,15 @@ try:
 except ImportError:
     from stuff import start, ihelp
 
-# API Credentials - SET THESE IN RENDER ENV VARS
-API_ID = int(os.environ.get("API_ID", 0))
-API_HASH = os.environ.get("API_HASH", "")
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+# Replace the old credential section with this:
+try:
+    API_ID = int(os.environ.get("API_ID").strip())
+    API_HASH = os.environ.get("API_HASH").strip()
+    BOT_TOKEN = os.environ.get("BOT_TOKEN").strip()
+except Exception as e:
+    print(f"CRITICAL ERROR: Could not read Environment Variables. Check Render Settings! Details: {e}")
+    sys.exit(1)
+
 
 # Define bot
 bot = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
