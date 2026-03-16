@@ -153,3 +153,12 @@ async def ccom(e):
         hehe = f"{outt};{dl};{tb};{dtime}"
         key = code(hehe)
         await customenc(omk, key)
+@bot.on(events.CallbackQuery)
+async def callback(event):
+    if event.data == b'settings':
+        await event.answer("Opening Settings...", alert=False)
+        await event.edit("**Bot Settings**\nSelect your preferred compression quality:")
+    elif event.data == b'help':
+        await event.answer()
+        await event.edit("**How to use:**\nJust send me a video file!")
+
