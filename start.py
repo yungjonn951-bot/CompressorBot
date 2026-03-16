@@ -18,27 +18,30 @@ import logging
 from threading import Thread
 from flask import Flask
 from telethon import TelegramClient, events
+from motor.motor_asyncio import AsyncIOMotorClient
 
-# --- 1. SYSTEM SETUP ---
+# --- 1. SYSTEM & LOGGING SETUP ---
 sys.path.append(os.getcwd())
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
-# --- 2. KEEP-ALIVE SERVER (The Flask Part) ---
+# --- 2. RENDER KEEP-ALIVE (FLASK) ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is alive and running!"
+    return "PrivComBot is Running!"
 
 def run_flask():
-    # Render automatically provides a PORT variable
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
     t = Thread(target=run_flask)
-    t.daemon = True # This ensures the thread dies when the main script dies
+    t.daemon = True
     t.start()
 
 # --- 3. ENVIRONMENT VARIABLES ---
@@ -46,29 +49,43 @@ API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
-LOG_CHANNEL = int(os.getenv("LOG_CHANNEL", 0))
-TG_DC = int(os.getenv("TG_DC", 1))
+MONGO_URI = os.getenv("MONGO_URI")
 PYTHON_VERSION = os.getenv("PYTHON_VERSION", "3.10")
 
-# --- 4. START THE BOT ---
-if not all([API_ID, API_HASH, BOT_TOKEN]):
-    logger.error("CRITICAL: Missing API_ID, API_HASH, or BOT_TOKEN!")
+# --- 4. SAFETY CHECK ---
+if not all([API_ID, API_HASH, BOT_TOKEN, MONGO_URI]):
+    logger.error("❌ MISSING CRITICAL VARS: Check API_ID, API_HASH, BOT_TOKEN, and MONGO_URI in Render!")
     sys.exit(1)
 
+# --- 5. INITIALIZE CLIENTS (TELEGRAM & MONGO) ---
 bot = TelegramClient('bot', int(API_ID), API_HASH).start(bot_token=BOT_TOKEN)
 
-from helper.stuff import start, ihelp
+# Import logic from helper/stuff.py
+try:
+    from helper.stuff import start, ihelp, broadcast, add_user
+except ImportError:
+    logger.error("❌ Could not find helper/stuff.py! Ensure the folder exists.")
+
+# --- 6. COMMAND HANDLERS ---
 
 @bot.on(events.NewMessage(pattern='/start'))
 async def start_handler(event):
+    # Saves user to MongoDB via the helper function
+    await add_user(event.sender_id)
     await start(event)
 
 @bot.on(events.NewMessage(pattern='/help'))
 async def help_handler(event):
     await ihelp(event)
 
+@bot.on(events.NewMessage(pattern='/broadcast'))
+async def broadcast_handler(event):
+    # Only the owner can broadcast
+    await broadcast(event, bot, OWNER_ID)
+
+# --- 7. STARTUP ---
 if __name__ == "__main__":
-    print(f"✅ Starting Python {PYTHON_VERSION}")
-    keep_alive()  # This starts the "heartbeat" server
-    print("🚀 Bot is connected to Telegram!")
+    print(f"✅ Starting PrivComBot on Python {PYTHON_VERSION}")
+    keep_alive()  # Satisfies Render's port requirement
+    print("🚀 Bot is online. Send /start in Telegram!")
     bot.run_until_disconnected()
