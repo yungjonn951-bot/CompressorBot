@@ -1,5 +1,5 @@
 #    This file is part of the CompressorBot distribution.
-#    Copyright (c) 2021 Danish_00
+#    Copyright (c) 2021 yungjonn951bot
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -10,7 +10,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 #    General Public License for more details.
 #
-#    License can be found in < https://github.com/1Danish-00/CompressorBot/blob/main/License> .
+#    License can be found in < https://github.com/yungjonn951bot/CompressorBot/blob/main/License> .
 
 from .worker import *
 
@@ -33,8 +33,8 @@ async def start(event):
         buttons=[
             [Button.inline("HELP", data="ihelp")],
             [
-                Button.url("SOURCE CODE", url="github.com/1Danish-00/CompressorBot"),
-                Button.url("DEVELOPER", url="t.me/danish_00"),
+                Button.url("SOURCE CODE", url="github.com/yungjonn951bot/CompressorBot"),
+                Button.url("DEVELOPER", url="t.me/YUNG_JONN_007"),
             ],
         ],
     )
@@ -42,13 +42,39 @@ async def start(event):
 
 async def help(event):
     await event.reply(
-        "**🐠 A Quality CompressorBot**\n\n+This Bot Compress Videos With Negligible Quality Change.\n+Generate Sample Compressed Video\n+Easy to Use\n-Due to Quality Settings Bot Takes Time To Compress.\nSo Be patience Nd Send videos One By One After Completing.\nDont Spam Bot.\n\nJust Forward Video To Get Options"
+        "**Welcome to PrivComBot!** 🗜️\n\n"
+        "Send me any video to begin compressing. Use the buttons below to manage your settings or get help.",
+        buttons=[
+            [
+                Button.inline("⚙️ Settings", data="settings"),
+                Button.inline("📖 Help", data="help")
+            ],
+            [
+                Button.url("👨‍💻 Developer", "https://t.me/YUNG_JONN_007"),
+                Button.url("🛡️ Privacy Policy", "https://telegra.ph/PrivComBot-Privacy-Policy")
+            ]
+        ]
+    )
+
     )
 
 
 async def ihelp(event):
     await event.edit(
-        "**🐠 A Quality CompressorBot**\n\n+This Bot Compress Videos With Negligible Quality Change.\n+Generate Sample Compressed Video\n+Screenshots Too\n+Easy to Use\n-Due to Quality Settings Bot Takes Time To Compress.\nSo Be patience Nd Send videos One By One After Completing.\nDont Spam Bot.\n\nJust Forward Video To Get Options",
+        "**Welcome to PrivComBot!** 🗜️\n\n"
+        "Send me any video to begin compressing. Use the buttons below to manage your settings or get help.",
+        buttons=[
+            [
+                Button.inline("⚙️ Settings", data="settings"),
+                Button.inline("📖 Help", data="help")
+            ],
+            [
+                Button.url("👨‍💻 Developer", "https://t.me/yungjonn951"),
+                Button.url("🛡️ Privacy Policy", "https://telegra.ph/PrivComBot-Privacy-Policy")
+            ]
+        ]
+    )
+,
         buttons=[Button.inline("BACK", data="beck")],
     )
 
@@ -60,8 +86,8 @@ async def beck(event):
         buttons=[
             [Button.inline("HELP", data="ihelp")],
             [
-                Button.url("SOURCE CODE", url="github.com/1Danish-00/"),
-                Button.url("DEVELOPER", url="t.me/danish_00"),
+                Button.url("SOURCE CODE", url="github.com/yungjonn951bot/"),
+                Button.url("DEVELOPER", url="t.me/YUNG_JONN_007"),
             ],
         ],
     )
