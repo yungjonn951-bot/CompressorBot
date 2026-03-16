@@ -15,57 +15,46 @@
 import os
 import asyncio
 import time
+import math
 from motor.motor_asyncio import AsyncIOMotorClient
 from telethon import Button
 
-# --- 1. DATABASE SETUP ---
+# --- DB SETUP ---
 MONGO_URI = os.getenv("MONGO_URI")
-db_client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+db_client = AsyncIOMotorClient(MONGO_URI)
 db = db_client["PrivComBot"]
 users_col = db["users"]
 
-# --- 2. PROGRESS BAR & UTILS ---
-def get_prog(current, total):
-    percentage = (current / total) * 100
-    completed = int(percentage / 10)
-    return "█" * completed + "░" * (10 - completed), percentage
-
-async def prog_cb(cur, tot, event, text):
-    bar, per = get_prog(cur, tot)
-    if int(per) % 10 == 0: # Update every 10% to prevent Telegram spam
-        try:
-            await event.edit(f"{text}\n\n{bar} **{per:.1f}%**")
-        except: pass
-
+# --- UTILS ---
 def human_size(size_bytes):
     if size_bytes == 0: return "0B"
-    size_name = ("B", "KB", "MB", "GB")
     i = int(math.floor(math.log(size_bytes, 1024)))
-    p = math.pow(1024, i)
-    s = round(size_bytes / p, 2)
-    return f"{s} {size_name[i]}"
+    return f"{round(size_bytes / math.pow(1024, i), 2)} {('B', 'KB', 'MB', 'GB')[i]}"
 
-import math # Needed for size calculation
-
-# --- 3. CORE FUNCTIONS ---
 async def add_user(u_id):
     try: await users_col.update_one({"user_id": u_id}, {"$set": {"user_id": u_id}}, upsert=True)
     except: pass
 
 async def get_stats(event):
     count = await users_col.count_documents({})
-    await event.reply(f"📊 **PrivComBot Stats**\n\nTotal Users: `{count}`")
+    await event.reply(f"📊 **PrivComBot Stats**\nTotal Users: `{count}`")
 
+# --- UI COMMANDS ---
 async def start(event):
-    await event.reply("Hi! I am **PrivComBot** 🤖\nSend a video to start!", buttons=[[Button.inline("📖 Help", data="help")]])
+    await event.reply("🤖 **PrivComBot Pro**\nSend a video to compress!", buttons=[[Button.inline("📖 Help", data="help")]])
 
 async def ihelp(event):
-    await event.reply("**How to use:**\n1. Send a video.\n2. Select quality.\n3. Wait for the magic!")
+    text = (
+        "🚀 **Compression Guide**\n\n"
+        "📉 **Low Quality (30%)**: Maximum compression. Good for low data/fast sharing. Noticeable quality drop.\n\n"
+        "📊 **Medium Quality (60%)**: The sweet spot. Great for mobile viewing with sharp enough detail.\n\n"
+        "📈 **High Quality (80%)**: Premium feel. Visually identical to original but with a smaller file size."
+    )
+    await event.reply(text)
 
 async def broadcast(event, bot, owner):
     if event.sender_id != owner: return
     msg = await event.get_reply_message()
-    if not msg: return await event.reply("Reply to a message!")
     status = await event.reply("🚀 Broadcasting...")
     sent = 0
     async for user in users_col.find():
@@ -75,64 +64,43 @@ async def broadcast(event, bot, owner):
         except: pass
     await status.edit(f"✅ Sent to `{sent}` users.")
 
-# --- 4. THE COMPRESSION ENGINE ---
+# --- ENGINE ---
 async def compress_video(event, bot, quality):
     crf_map = {"low": "30", "med": "24", "high": "20"}
     crf = crf_map.get(quality, "24")
-    
-    input_path = f"in_{event.id}.mp4"
-    output_path = f"out_{event.id}.mp4"
-    status = await event.edit("📥 **Downloading original file...**")
+    input_path, output_path = f"in_{event.id}.mp4", f"out_{event.id}.mp4"
+    status = await event.edit("📥 **Downloading...**")
     
     try:
-        # Get Original Size
         reply = await event.get_reply_message()
         orig_size = reply.video.size if reply.video else reply.document.size
+        await bot.download_media(reply, input_path)
         
-        # 1. Download
-        await bot.download_media(reply, input_path, progress_callback=lambda c, t: prog_cb(c, t, status, "📥 **Downloading...**"))
-        
-        # 2. Compression
-        start_time = time.time()
-        await status.edit(f"⚙️ **Processing {quality.upper()} Quality...**\n_This might take a while depending on size._")
-        
-        # Optimized FFmpeg command for Render
+        await status.edit(f"⚙️ **Processing {quality.upper()}...**")
         cmd = ["ffmpeg", "-i", input_path, "-vcodec", "libx264", "-crf", crf, "-preset", "ultrafast", "-acodec", "aac", "-y", output_path]
-        
-        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        await process.communicate()
+        process = await asyncio.create_subprocess_exec(*cmd)
+        await process.wait()
 
-        # 3. Final Comparison & Upload
         if os.path.exists(output_path):
             comp_size = os.path.getsize(output_path)
-            saved_size = orig_size - comp_size
-            saved_percent = (saved_size / orig_size) * 100
-            time_taken = int(time.time() - start_time)
-
-            await status.edit("📤 **Compression done! Uploading...**")
+            saved = ((orig_size - comp_size) / orig_size) * 100
             
             caption = (
-                f"✅ **Video Compressed!**\n\n"
-                f"📁 **Original:** `{human_size(orig_size)}`\n"
-                f"💎 **Compressed:** `{human_size(comp_size)}`\n"
-                f"📉 **Saved:** `{human_size(saved_size)}` ({saved_percent:.1f}%)\n"
-                f"⏱ **Time:** `{time_taken}s`"
+                f"✅ **Success!**\n\n"
+                f"📁 Original: `{human_size(orig_size)}`\n"
+                f"💎 Compressed: `{human_size(comp_size)}`\n"
+                f"📉 Saved: `{saved:.1f}%`"
             )
-
+            
+            # Post-compression rating buttons
             await bot.send_file(
-                event.chat_id, output_path, 
-                caption=caption,
-                progress_callback=lambda c, t: prog_cb(c, t, status, "📤 **Uploading...**")
+                event.chat_id, output_path, caption=caption,
+                buttons=[[Button.url("⭐ Rate Us", "https://t.me/your_bot_username_here")]]
             )
             await status.delete()
-        else:
-            await status.edit("❌ **Compression Failed!**\nThe file might be corrupted or too large for my server.")
-
     except Exception as e:
-        await event.reply(f"❌ **Error:** `{str(e)}` \n_Try a smaller file._")
-    
+        await event.reply(f"❌ Error: `{e}`")
     finally:
-        # Cleanup
         for p in [input_path, output_path]:
             if os.path.exists(p): os.remove(p)
 
